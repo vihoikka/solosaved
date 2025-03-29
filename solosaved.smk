@@ -17,9 +17,9 @@ uniprot_db_path = "/mnt/shared/datasets/databases/uniprot/uniref/uniref90/uniref
 plsdb_proteins = "/home/vhoikkal/projects/uosa/Ville_Hoikkala/old_cluster/01_transfer/plsdb/2024_05_31/plsdb_proteins_2024_05_31.faa"
 
 # Phages
-millard_fa = "/mnt/shared/scratch/vhoikkal/private/databases/millard_phages/4May2024_genomes.fa"
-millard_proteins = "/mnt/shared/scratch/vhoikkal/private/databases/millard_phages/4May2024_vConTACT2_proteins.faa"
-millard_metadata = "/mnt/shared/scratch/vhoikkal/private/databases/millard_phages/4May2024_data.tsv"
+millard_fa = "/home/vhoikkal/projects/uosa/Ville_Hoikkala/old_cluster/01_transfer/millard_phages/Mar2025/2Mar2025_genomes.fa"
+millard_proteins = "/home/vhoikkal/projects/uosa/Ville_Hoikkala/old_cluster/01_transfer/millard_phages/Mar2025/2Mar2025_vConTACT2_proteins.faa"
+millard_metadata = "/home/vhoikkal/projects/uosa/Ville_Hoikkala/old_cluster/01_transfer/millard_phages/Mar2025/2Mar2025_data.tsv"
 
 ### PARAMETERS ###
 solosaved_max_length = 250
@@ -138,6 +138,42 @@ rule uniprot_hmmscan_solosaved:
 #         touch {output}
 #         '''
 
+# rule solosaved_hmmscan_plasmids:
+#     '''
+#     Runs hmmscan using saved HMMs against annotated plasmids
+#     '''
+#     input:
+#         proteins = plsdb_proteins
+#     output:
+#         temp_rows = output_folder_plasmids_hmm + "/{plasmid}/{plasmid}_RN_temp.tsv",
+#         hmm_rows = output_folder_plasmids_hmm + "/{plasmid}/{plasmid}_RN_hmm.tsv"
+#     threads: thread_med
+#     params:
+#         saved_db = carfsaved_hmm_db_path,
+#         evalue = "1e-8",
+#         temp_hmm = output_folder_plasmids_hmm + "/{plasmid}/{plasmid}_RN_hmm.temp"
+#     conda: "envs/hmmer.yaml"
+#     threads: thread_min
+#     log:
+#         out = output_folder_plasmids_hmm + "/{plasmid}/logs/RN_search.out",
+#         err = output_folder_plasmids_hmm + "/{plasmid}/logs/RN_search.err"
+#     shell:
+#         '''
+#         hmmscan --domtblout {params.temp_hmm} --cpu {threads} -E {params.evalue} {params.saved_db} {input.proteins} &> /dev/null
+#         echo "Removing commented rows" >> {log.out}
+#         grep -v "^#" {params.temp_hmm} > {output.temp_rows} ||:
+#         echo "Writing header" >> {log.out}
+#         echo -e 'target_name\taccession\ttlen\tquery_name\taccession\tqlen\tE-value_fullseq\tscore_fullseq\tbias_fullseq\t#_domain\tof_domain\tc-Evalue_domain\ti-Evalue_domain\tscore_domain\tbias_domain\t_hmm_from\thmm_to\t_ali_from\tali_to\tenv_from\tenv_to\tacc\tdescription' > {output.hmm_rows}
+#         echo "Checking if hits were found" >> {log.out}
+#         if [ -s {output.temp_rows} ]; then 
+#             echo "Hits found for {wildcards.plasmid}" >> {log.out}
+#             cat {output.temp_rows} >> {output.hmm_rows}
+#         else
+#             echo "No hits found for {wildcards.plasmid}" >> {log.out}
+#             touch {output.hmm_rows}
+#         fi
+#         '''
+
 rule solosaved_hmmscan_plasmids:
     '''
     Runs hmmscan using saved HMMs against annotated plasmids
@@ -145,18 +181,18 @@ rule solosaved_hmmscan_plasmids:
     input:
         proteins = plsdb_proteins
     output:
-        temp_rows = output_folder_plasmids_hmm + "/{plasmid}/{plasmid}_RN_temp.tsv",
-        hmm_rows = output_folder_plasmids_hmm + "/{plasmid}/{plasmid}_RN_hmm.tsv"
+        temp_rows = output_folder_plasmids_hmm + "/plasmid_solosaved_temp.tsv",
+        hmm_rows = output_folder_plasmids_hmm + "/plasmid_solosaved_temp_hmm.tsv"
     threads: thread_med
     params:
         saved_db = carfsaved_hmm_db_path,
         evalue = "1e-8",
-        temp_hmm = output_folder_plasmids_hmm + "/{plasmid}/{plasmid}_RN_hmm.temp"
+        temp_hmm = output_folder_plasmids_hmm + "/plasmid_solosaved_temp_hmm.temp"
     conda: "envs/hmmer.yaml"
-    threads: thread_min
+    threads: thread_hogger
     log:
-        out = output_folder_plasmids_hmm + "/{plasmid}/logs/RN_search.out",
-        err = output_folder_plasmids_hmm + "/{plasmid}/logs/RN_search.err"
+        out = output_folder_plasmids_hmm + "/logs/plasmid_solosaved_hmm.out",
+        err = output_folder_plasmids_hmm + "/logs/plasmid_solosaved_hmm.err"
     shell:
         '''
         hmmscan --domtblout {params.temp_hmm} --cpu {threads} -E {params.evalue} {params.saved_db} {input.proteins} &> /dev/null
@@ -208,14 +244,14 @@ rule solosaved_hmmscan_plasmids:
 ### PHAGES ###
 
 
-def aggregate_millard_phage_RN_analysis(wildcards):
+def aggregate_millard_phage_solosaved_analysis(wildcards):
     '''
     This function is used to aggregate the outputs of the millard_phage_RN_analysis rule.
     If not working, create a checkpoint to generate wildcards first.
     '''
     checkpoint_output = checkpoints.divide_millard_phages_to_folders.get(**wildcards).output[0]
     cvals = glob_wildcards(os.path.join(checkpoint_output,"{phage}/done.txt")).phage
-    return expand(base_path + "/P3_hmm_analysis/{phage}/{phage}_cATyper_results.tsv", phage=cvals)
+    return expand(output_folder_phage_hmm + "/{phage}/{phage}_RN_hmm.tsv", phage=cvals)
 
 
 checkpoint divide_millard_phages_to_folders:
@@ -274,7 +310,7 @@ checkpoint divide_millard_phages_to_folders:
             with open(f"{phage_dir}/done.txt", "w") as out:
                 out.write("done")
 
-rule millard_phage_RN:
+rule millard_phage_solosaved_hmm:
     '''
     Searches for ring nucleases in the Millard phage proteomes using HMMER and
     our pre-made RN hmm profiles similar to rule ring_nucleases
@@ -309,3 +345,14 @@ rule millard_phage_RN:
             touch {output.hmm_rows}
         fi
         '''
+
+rule concatenate_millard_phage_solosaved_analysis:
+    '''
+    Concatenates the results of the millard_phage_solosaved_analysis rule.
+    '''
+    input: aggregate_millard_phage_solosaved_analysis
+    output: output_folder_phage_hmm + "/millard_phage_solosaved_analysis.tsv"
+    shell:
+        """
+        cat {input} > {output}
+        """
