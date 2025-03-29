@@ -8,7 +8,7 @@ base_path = "/home/vhoikkal/scratch/private/runs/solosaved" + "/" + project
 ### INPUTS ###
 
 # Databases
-carfsaved_hmm_db_path = "/home/vhoikkal/projects/uosa/Ville_Hoikkala/old_cluster/01_transfer/carfsaved"
+carfsaved_hmm_db_path = "/home/vhoikkal/projects/uosa/Ville_Hoikkala/old_cluster/01_transfer/carfsaved/carfsaved.hmm"
 
 # Uniprot
 uniprot_db_path = "/mnt/shared/datasets/databases/uniprot/uniref/uniref90/uniref90.fasta.gz"
