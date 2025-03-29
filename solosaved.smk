@@ -3,7 +3,7 @@ A snakemake pipeline to search for solosaveds in phage, plasmid and Uniprot prot
 '''
 
 project = "run_2025_1"
-base_path = "/home/vhoikkal/scratch/private/runs/solosaved" + "/" + project
+base_path = f"/home/vhoikkal/scratch/private/runs/solosaved/{project}"
 
 ### INPUTS ###
 
@@ -35,23 +35,23 @@ thread_min = 1
 
 ### PATHS ###
 # Uniprot
-output_folder_uniprot_subset = base_path + "/011_uniprot_small_proteins"
-output_folder_uniprot_hmm = base_path + "/012_uniprot_hmm"
+output_folder_uniprot_subset = f"{base_path}/011_uniprot_small_proteins"
+output_folder_uniprot_hmm = f"{base_path}/012_uniprot_hmm"
 
 # Plasmids
-output_folder_plasmids = base_path + "/021_annotated_plasmids"
-output_folder_plasmids_hmm = base_path + "/022_plasmids_hmm"
-output_folder_plasmid_locus_viz = base_path + "/023_locus_viz"
+output_folder_plasmids = f"{base_path}/021_annotated_plasmids"
+output_folder_plasmids_hmm = f"{base_path}/022_plasmids_hmm"
+output_folder_plasmid_locus_viz = f"{base_path}/023_locus_viz"
 
 # Phages
-output_folder_phage_genomes = base_path + "/031_phage_genomes"
-output_folder_phage_hmm = base_path + "/032_phage_hmm"
+output_folder_phage_genomes = f"{base_path}/031_phage_genomes"
+output_folder_phage_hmm = f"{base_path}/032_phage_hmm"
 
 
 ### RULES ###
 
 rule all:
-    input: output_folder_uniprot_hmm + "/uniprot_solosaved_out.tsv"
+    input: f"{output_folder_uniprot_hmm}/uniprot_solosaved_out.tsv"
 
 ### UNIPROT PROTEINS ###
 
@@ -60,7 +60,7 @@ rule uniprot_subset_small_proteins:
     Subsetting the uniprot db to only include proteins smaller than the max length. Using seqkit
     '''
     input: uniprot_db_path
-    output: output_folder_uniprot_subset + "/uniprot_small.faa"
+    output: f"{output_folder_uniprot_subset}/uniprot_small.faa"
     params: max_length = solosaved_max_length
     threads: thread_hogger
     conda:
@@ -79,19 +79,19 @@ rule uniprot_hmmscan_solosaved:
         db = carfsaved_hmm_db_path,
         query = rules.uniprot_subset_small_proteins.output
     output:
-        hmm_rows = output_folder_uniprot_hmm + "/uniprot_solosaved_out.tsv",
-        contig_proteins = output_folder_uniprot_hmm + "/uniprot_solosaved_proteins.faa",
-        rows_temp = output_folder_uniprot_hmm + "/temp_rows.tsv"
+        hmm_rows = f"{output_folder_uniprot_hmm}/uniprot_solosaved_out.tsv",
+        contig_proteins = f"{output_folder_uniprot_hmm}/uniprot_solosaved_proteins.faa",
+        rows_temp = f"{output_folder_uniprot_hmm}/temp_rows.tsv"
     params:
         max_length = solosaved_max_length,
         e_value = solosaved_e_value,
-        temp_hmm = output_folder_uniprot_hmm + "/temp_hmm.tsv",
+        temp_hmm = f"{output_folder_uniprot_hmm}/temp_hmm.tsv",
     threads: thread_hogger
     conda:
         "envs/hmmer.yaml"
     log:
-        out = output_folder_uniprot_hmm + "/logs/solosaved_hmmscan.out",
-        err = output_folder_uniprot_hmm + "/logs/solosaved_hmmscan.err"
+        out = f"{output_folder_uniprot_hmm}/logs/solosaved_hmmscan.out",
+        err = f"{output_folder_uniprot_hmm}/logs/solosaved_hmmscan.err"
     shell:
         '''
         hmmscan --domtblout {params.temp_hmm} --cpu {threads} -E {params.e_value} {input.db} {input.query} &> /dev/null
@@ -113,67 +113,6 @@ rule uniprot_hmmscan_solosaved:
 ### PLASMIDS ###
 
 
-# rule annotate_plasmids:
-#     '''
-#     Uses Prokka to annotate input plasmids
-#     '''
-#     input:
-#         plasmid_fasta = input_plasmid_nt_split_folder + "/{plasmid}.fna"
-#     output:
-#         proteins = output_folder_plasmids + "/{plasmid}/{plasmid}.faa",
-#         nt = output_folder_plasmids + "/{plasmid}/{plasmid}.fna",
-#         gff = output_folder_plasmids + "/{plasmid}/{plasmid}.gff",
-#         gbk = output_folder_plasmids + "/{plasmid}/{plasmid}.gbk"
-#     conda: "envs/prokka.yaml"
-#     params:
-#         outfolder = output_folder_plasmids + "/{plasmid}",
-#         rn_hmm = ring_nuclease_hmm_db
-#     threads: 5
-#     log:
-#         err = output_folder_plasmids + "/{plasmid}/logs/prokka.err",
-#         out = output_folder_plasmids + "/{plasmid}/logs/prokka.out"
-#     shell:
-#         '''
-#         prokka --outdir {params.outfolder} {input.plasmid_fasta} --prefix {wildcards.plasmid} --cpus {threads} --force 2> {log.err} 1> {log.out}
-#         touch {output}
-#         '''
-
-# rule solosaved_hmmscan_plasmids:
-#     '''
-#     Runs hmmscan using saved HMMs against annotated plasmids
-#     '''
-#     input:
-#         proteins = plsdb_proteins
-#     output:
-#         temp_rows = output_folder_plasmids_hmm + "/{plasmid}/{plasmid}_RN_temp.tsv",
-#         hmm_rows = output_folder_plasmids_hmm + "/{plasmid}/{plasmid}_RN_hmm.tsv"
-#     threads: thread_med
-#     params:
-#         saved_db = carfsaved_hmm_db_path,
-#         evalue = "1e-8",
-#         temp_hmm = output_folder_plasmids_hmm + "/{plasmid}/{plasmid}_RN_hmm.temp"
-#     conda: "envs/hmmer.yaml"
-#     threads: thread_min
-#     log:
-#         out = output_folder_plasmids_hmm + "/{plasmid}/logs/RN_search.out",
-#         err = output_folder_plasmids_hmm + "/{plasmid}/logs/RN_search.err"
-#     shell:
-#         '''
-#         hmmscan --domtblout {params.temp_hmm} --cpu {threads} -E {params.evalue} {params.saved_db} {input.proteins} &> /dev/null
-#         echo "Removing commented rows" >> {log.out}
-#         grep -v "^#" {params.temp_hmm} > {output.temp_rows} ||:
-#         echo "Writing header" >> {log.out}
-#         echo -e 'target_name\taccession\ttlen\tquery_name\taccession\tqlen\tE-value_fullseq\tscore_fullseq\tbias_fullseq\t#_domain\tof_domain\tc-Evalue_domain\ti-Evalue_domain\tscore_domain\tbias_domain\t_hmm_from\thmm_to\t_ali_from\tali_to\tenv_from\tenv_to\tacc\tdescription' > {output.hmm_rows}
-#         echo "Checking if hits were found" >> {log.out}
-#         if [ -s {output.temp_rows} ]; then 
-#             echo "Hits found for {wildcards.plasmid}" >> {log.out}
-#             cat {output.temp_rows} >> {output.hmm_rows}
-#         else
-#             echo "No hits found for {wildcards.plasmid}" >> {log.out}
-#             touch {output.hmm_rows}
-#         fi
-#         '''
-
 rule solosaved_hmmscan_plasmids:
     '''
     Runs hmmscan using saved HMMs against annotated plasmids
@@ -181,18 +120,18 @@ rule solosaved_hmmscan_plasmids:
     input:
         proteins = plsdb_proteins
     output:
-        temp_rows = output_folder_plasmids_hmm + "/plasmid_solosaved_temp.tsv",
-        hmm_rows = output_folder_plasmids_hmm + "/plasmid_solosaved_temp_hmm.tsv"
+        temp_rows = f"{output_folder_plasmids_hmm}/plasmid_solosaved_temp.tsv",
+        hmm_rows = f"{output_folder_plasmids_hmm}/plasmid_solosaved_temp_hmm.tsv"
     threads: thread_med
     params:
         saved_db = carfsaved_hmm_db_path,
         evalue = "1e-8",
-        temp_hmm = output_folder_plasmids_hmm + "/plasmid_solosaved_temp_hmm.temp"
+        temp_hmm = f"{output_folder_plasmids_hmm}/plasmid_solosaved_temp_hmm.temp"
     conda: "envs/hmmer.yaml"
     threads: thread_hogger
     log:
-        out = output_folder_plasmids_hmm + "/logs/plasmid_solosaved_hmm.out",
-        err = output_folder_plasmids_hmm + "/logs/plasmid_solosaved_hmm.err"
+        out = f"{output_folder_plasmids_hmm}/logs/plasmid_solosaved_hmm.out",
+        err = f"{output_folder_plasmids_hmm}/logs/plasmid_solosaved_hmm.err"
     shell:
         '''
         hmmscan --domtblout {params.temp_hmm} --cpu {threads} -E {params.evalue} {params.saved_db} {input.proteins} &> /dev/null
@@ -210,37 +149,6 @@ rule solosaved_hmmscan_plasmids:
         fi
         '''
 
-# rule plasmid_locus_visualiser:
-#     '''
-#     This rule visualises a given range of a gff file.
-#     Using plasmid as wildcard.
-#     GFF comes from Prokka output.
-#     Coordinates for RN come from HMMER output.
-#     '''
-#     input:
-#         gff = rules.annotate_plasmids.output.gff,
-#         hmm_hits = rules.solosaved_hmmscan_plasmids.output.hmm_rows,
-#         gbk = rules.annotate_plasmids.output.gbk
-#     output:
-#         done = output_folder_plasmid_locus_viz + "/{plasmid}/done"
-#     conda:
-#         "envs/locus_visualiser.yaml"
-#     params:
-#         outdir = output_folder_plasmid_locus_viz + "/{plasmid}",
-#         gbk_out = output_folder_plasmid_locus_viz + "/04_locus_viz_gbk"
-#     log:
-#         out = output_folder_plasmid_locus_viz + "/logs/{plasmid}.out",
-#         err = output_folder_plasmid_locus_viz + "/logs/{plasmid}.err",
-#     threads: thread_singular
-#     shell:
-#         '''
-#         if [ ! -d {params.gbk_out} ]; then
-#             mkdir {params.gbk_out}
-#         fi
-#         python scripts/locus_viz_gff_hmm.py --sample {wildcards.plasmid} --output_folder {params.outdir} --prokka_gff {input.gff} --hmm_hits {input.hmm_hits} --gbk {input.gbk} --gbk_out_folder {params.gbk_out} 2> {log.err} 1> {log.out}
-#         touch {output.done}
-#         '''
-
 ### PHAGES ###
 
 
@@ -251,7 +159,7 @@ def aggregate_millard_phage_solosaved_analysis(wildcards):
     '''
     checkpoint_output = checkpoints.divide_millard_phages_to_folders.get(**wildcards).output[0]
     cvals = glob_wildcards(os.path.join(checkpoint_output,"{phage}/done.txt")).phage
-    return expand(output_folder_phage_hmm + "/{phage}/{phage}_RN_hmm.tsv", phage=cvals)
+    return expand(f"{output_folder_phage_hmm}/{{phage}}/{{phage}}_RN_hmm.tsv", phage=cvals)
 
 
 checkpoint divide_millard_phages_to_folders:
@@ -316,19 +224,19 @@ rule millard_phage_solosaved_hmm:
     our pre-made RN hmm profiles similar to rule ring_nucleases
     '''
     input:
-        phage_proteins = output_folder_phage_genomes + "/{phage}/{phage}_proteins.faa"
+        phage_proteins = f"{output_folder_phage_genomes}/{{phage}}/{{phage}}_proteins.faa"
     output:
-        temp_rows = output_folder_phage_hmm + "/{phage}/{phage}_RN_temp.tsv",
-        hmm_rows = output_folder_phage_hmm + "/{phage}/{phage}_RN_hmm.tsv"
+        temp_rows = f"{output_folder_phage_hmm}/{{phage}}/{{phage}}_RN_temp.tsv",
+        hmm_rows = f"{output_folder_phage_hmm}/{{phage}}/{{phage}}_RN_hmm.tsv"
     params:
         solosaved_db = carfsaved_hmm_db_path,
         evalue = "1e-8",
-        temp_hmm = output_folder_phage_hmm + "/{phage}/{phage}_RN_hmm.temp"
+        temp_hmm = f"{output_folder_phage_hmm}/{{phage}}/{{phage}}_RN_hmm.temp"
     conda: "envs/hmmer.yaml"
     threads: thread_small
     log:
-        out = output_folder_phage_hmm + "/{phage}/logs/RN_search.out",
-        err = output_folder_phage_hmm + "/{phage}/logs/RN_search.err"
+        out = f"{output_folder_phage_hmm}/{{phage}}/logs/RN_search.out",
+        err = f"{output_folder_phage_hmm}/{{phage}}/logs/RN_search.err"
     shell:
         '''
         hmmscan --domtblout {params.temp_hmm} --cpu {threads} -E {params.evalue} {params.solosaved_db} {input.phage_proteins} &> /dev/null
@@ -351,7 +259,7 @@ rule concatenate_millard_phage_solosaved_analysis:
     Concatenates the results of the millard_phage_solosaved_analysis rule.
     '''
     input: aggregate_millard_phage_solosaved_analysis
-    output: output_folder_phage_hmm + "/millard_phage_solosaved_analysis.tsv"
+    output: f"{output_folder_phage_hmm}/millard_phage_solosaved_analysis.tsv"
     shell:
         """
         cat {input} > {output}
