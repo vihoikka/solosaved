@@ -1,7 +1,5 @@
 '''
-A snakemake pipeline to search for solosaveds in prokaryotic proteins.
-Uses hmmscan with the carf/saved profile and scans through the uniprot db
-in gruffalo.
+A snakemake pipeline to search for solosaveds in phage, plasmid and Uniprot proteins.
 '''
 
 project = "run_2025_1"
@@ -28,11 +26,12 @@ solosaved_max_length = 250
 solosaved_e_value = 1e-8
 
 thread_hogger = 60
-thread_small = 15
+thread_med = 20
+thread_small = 5
 thread_min = 1
 
 ### CONFIG ###
-PLASMIDS = [os.path.basename(fasta).replace('.fna', '') for fasta in glob.glob(input_plasmid_nt_split_folder + "/*.fna")]
+#PLASMIDS = [os.path.basename(fasta).replace('.fna', '') for fasta in glob.glob(input_plasmid_nt_split_folder + "/*.fna")]
 
 ### PATHS ###
 # Uniprot
@@ -78,7 +77,7 @@ rule uniprot_hmmscan_solosaved:
     '''
     input:
         db = carfsaved_hmm_db_path,
-        query = rules.subset_small_proteins.output
+        query = rules.uniprot_subset_small_proteins.output
     output:
         hmm_rows = output_folder_uniprot_hmm + "/uniprot_solosaved_out.tsv",
         contig_proteins = output_folder_uniprot_hmm + "/uniprot_solosaved_proteins.faa",
@@ -114,30 +113,30 @@ rule uniprot_hmmscan_solosaved:
 ### PLASMIDS ###
 
 
-rule annotate_plasmids:
-    '''
-    Uses Prokka to annotate input plasmids
-    '''
-    input:
-        plasmid_fasta = input_plasmid_nt_split_folder + "/{plasmid}.fna"
-    output:
-        proteins = output_folder_plasmids + "/{plasmid}/{plasmid}.faa",
-        nt = output_folder_plasmids + "/{plasmid}/{plasmid}.fna",
-        gff = output_folder_plasmids + "/{plasmid}/{plasmid}.gff",
-        gbk = output_folder_plasmids + "/{plasmid}/{plasmid}.gbk"
-    conda: "envs/prokka.yaml"
-    params:
-        outfolder = output_folder_plasmids + "/{plasmid}",
-        rn_hmm = ring_nuclease_hmm_db
-    threads: 5
-    log:
-        err = output_folder_plasmids + "/{plasmid}/logs/prokka.err",
-        out = output_folder_plasmids + "/{plasmid}/logs/prokka.out"
-    shell:
-        '''
-        prokka --outdir {params.outfolder} {input.plasmid_fasta} --prefix {wildcards.plasmid} --cpus {threads} --force 2> {log.err} 1> {log.out}
-        touch {output}
-        '''
+# rule annotate_plasmids:
+#     '''
+#     Uses Prokka to annotate input plasmids
+#     '''
+#     input:
+#         plasmid_fasta = input_plasmid_nt_split_folder + "/{plasmid}.fna"
+#     output:
+#         proteins = output_folder_plasmids + "/{plasmid}/{plasmid}.faa",
+#         nt = output_folder_plasmids + "/{plasmid}/{plasmid}.fna",
+#         gff = output_folder_plasmids + "/{plasmid}/{plasmid}.gff",
+#         gbk = output_folder_plasmids + "/{plasmid}/{plasmid}.gbk"
+#     conda: "envs/prokka.yaml"
+#     params:
+#         outfolder = output_folder_plasmids + "/{plasmid}",
+#         rn_hmm = ring_nuclease_hmm_db
+#     threads: 5
+#     log:
+#         err = output_folder_plasmids + "/{plasmid}/logs/prokka.err",
+#         out = output_folder_plasmids + "/{plasmid}/logs/prokka.out"
+#     shell:
+#         '''
+#         prokka --outdir {params.outfolder} {input.plasmid_fasta} --prefix {wildcards.plasmid} --cpus {threads} --force 2> {log.err} 1> {log.out}
+#         touch {output}
+#         '''
 
 rule solosaved_hmmscan_plasmids:
     '''
@@ -154,7 +153,7 @@ rule solosaved_hmmscan_plasmids:
         evalue = "1e-8",
         temp_hmm = output_folder_plasmids_hmm + "/{plasmid}/{plasmid}_RN_hmm.temp"
     conda: "envs/hmmer.yaml"
-    threads: thread_singular
+    threads: thread_min
     log:
         out = output_folder_plasmids_hmm + "/{plasmid}/logs/RN_search.out",
         err = output_folder_plasmids_hmm + "/{plasmid}/logs/RN_search.err"
@@ -175,36 +174,36 @@ rule solosaved_hmmscan_plasmids:
         fi
         '''
 
-rule plasmid_locus_visualiser:
-    '''
-    This rule visualises a given range of a gff file.
-    Using plasmid as wildcard.
-    GFF comes from Prokka output.
-    Coordinates for RN come from HMMER output.
-    '''
-    input:
-        gff = rules.annotate_plasmids.output.gff,
-        hmm_hits = rules.solosaved_hmmscan_plasmids.output.hmm_rows,
-        gbk = rules.annotate_plasmids.output.gbk
-    output:
-        done = output_folder_plasmid_locus_viz + "/{plasmid}/done"
-    conda:
-        "envs/locus_visualiser.yaml"
-    params:
-        outdir = output_folder_plasmid_locus_viz + "/{plasmid}",
-        gbk_out = output_folder_plasmid_locus_viz + "/04_locus_viz_gbk"
-    log:
-        out = output_folder_plasmid_locus_viz + "/logs/{plasmid}.out",
-        err = output_folder_plasmid_locus_viz + "/logs/{plasmid}.err",
-    threads: thread_singular
-    shell:
-        '''
-        if [ ! -d {params.gbk_out} ]; then
-            mkdir {params.gbk_out}
-        fi
-        python scripts/locus_viz_gff_hmm.py --sample {wildcards.plasmid} --output_folder {params.outdir} --prokka_gff {input.gff} --hmm_hits {input.hmm_hits} --gbk {input.gbk} --gbk_out_folder {params.gbk_out} 2> {log.err} 1> {log.out}
-        touch {output.done}
-        '''
+# rule plasmid_locus_visualiser:
+#     '''
+#     This rule visualises a given range of a gff file.
+#     Using plasmid as wildcard.
+#     GFF comes from Prokka output.
+#     Coordinates for RN come from HMMER output.
+#     '''
+#     input:
+#         gff = rules.annotate_plasmids.output.gff,
+#         hmm_hits = rules.solosaved_hmmscan_plasmids.output.hmm_rows,
+#         gbk = rules.annotate_plasmids.output.gbk
+#     output:
+#         done = output_folder_plasmid_locus_viz + "/{plasmid}/done"
+#     conda:
+#         "envs/locus_visualiser.yaml"
+#     params:
+#         outdir = output_folder_plasmid_locus_viz + "/{plasmid}",
+#         gbk_out = output_folder_plasmid_locus_viz + "/04_locus_viz_gbk"
+#     log:
+#         out = output_folder_plasmid_locus_viz + "/logs/{plasmid}.out",
+#         err = output_folder_plasmid_locus_viz + "/logs/{plasmid}.err",
+#     threads: thread_singular
+#     shell:
+#         '''
+#         if [ ! -d {params.gbk_out} ]; then
+#             mkdir {params.gbk_out}
+#         fi
+#         python scripts/locus_viz_gff_hmm.py --sample {wildcards.plasmid} --output_folder {params.outdir} --prokka_gff {input.gff} --hmm_hits {input.hmm_hits} --gbk {input.gbk} --gbk_out_folder {params.gbk_out} 2> {log.err} 1> {log.out}
+#         touch {output.done}
+#         '''
 
 ### PHAGES ###
 
@@ -230,7 +229,7 @@ checkpoint divide_millard_phages_to_folders:
         millard_proteins = millard_proteins #aa multifasta of all phage genones. Headers are >phage_name_runningnumber
     params:
         outdir = output_folder_phage_genomes,
-    threads: thread_ultrasmall
+    threads: thread_small
     run:
         from Bio import SeqIO
         import os
@@ -290,7 +289,7 @@ rule millard_phage_RN:
         evalue = "1e-8",
         temp_hmm = output_folder_phage_hmm + "/{phage}/{phage}_RN_hmm.temp"
     conda: "envs/hmmer.yaml"
-    threads: thread_ultrasmall
+    threads: thread_small
     log:
         out = output_folder_phage_hmm + "/{phage}/logs/RN_search.out",
         err = output_folder_phage_hmm + "/{phage}/logs/RN_search.err"
