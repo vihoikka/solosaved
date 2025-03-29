@@ -1,0 +1,14 @@
+channels:
+  - bioconda
+  #- anaconda
+  - conda-forge
+dependencies:
+  - hmmer=3.3.2
+  - pandas
+  - seqkit
+  - biopython
+  - gffutils
+  - muscle
+  - numpy=1.16.0
+  - seaborn
+  - python=3.7
